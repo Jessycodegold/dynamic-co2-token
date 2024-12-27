@@ -42,3 +42,31 @@
 (begin
     (var-set total-supply u0)
     (map-set balances CONTRACT-OWNER u0))
+
+    ;; CO2 Level Management
+(define-public (set-co2-level (new-level uint))
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+        (asserts! (> new-level u0) ERR-INVALID-VALUE)
+        (let ((old-level (var-get base-co2-level))
+              (diff (if (> new-level old-level)
+                       (- new-level old-level)
+                       u0)))
+            (var-set base-co2-level new-level)
+            (if (> diff u0)
+                (mint-tokens diff)
+                (ok u0)))))
+
+;; Token Operations
+(define-private (mint-tokens (amount uint))
+    (let ((tokens-to-mint (* amount (var-get emission-factor))))
+        (var-set total-supply (+ (var-get total-supply) tokens-to-mint))
+        (map-set balances CONTRACT-OWNER 
+            (+ (default-to u0 (map-get? balances CONTRACT-OWNER)) tokens-to-mint))
+        (ok tokens-to-mint)))
+
+;; Distribution to Eco-Projects
+(define-public (distribute-to-project (project principal) (amount uint))
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+        (transfer amount CONTRACT-OWNER project none)))
